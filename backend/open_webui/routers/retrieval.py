@@ -3,6 +3,7 @@ import logging
 import mimetypes
 import os
 import shutil
+import asyncio
 
 import uuid
 from datetime import datetime
@@ -351,7 +352,8 @@ async def get_rag_config(request: Request, user=Depends(get_admin_user)):
         "content_extraction": {
             "engine": request.app.state.config.CONTENT_EXTRACTION_ENGINE,
             "tika_server_url": request.app.state.config.TIKA_SERVER_URL,
-            "pdftotext_server_url": request.app.state.config.PDFTOTEXT_SERVER_URL
+            "pdftotext_server_url": request.app.state.config.PDFTOTEXT_SERVER_URL,
+            "maxpage_pdftotext": request.app.state.config.MAXPAGE_PDFTOTEXT
         },
         "chunk": {
             "text_splitter": request.app.state.config.TEXT_SPLITTER,
@@ -405,6 +407,7 @@ class ContentExtractionConfig(BaseModel):
     engine: str = ""
     tika_server_url: Optional[str] = None
     pdftotext_server_url: Optional[str] = None
+    maxpage_pdftotext: Optional[int] = None
 
 
 class ChunkParamUpdateForm(BaseModel):
@@ -489,6 +492,10 @@ async def update_rag_config(
             form_data.content_extraction.pdftotext_server_url
         )
 
+        request.app.state.config.MAXPAGE_PDFTOTEXT = (
+            form_data.content_extraction.maxpage_pdftotext
+        )
+
     if form_data.chunk is not None:
         request.app.state.config.TEXT_SPLITTER = form_data.chunk.text_splitter
         request.app.state.config.CHUNK_SIZE = form_data.chunk.chunk_size
@@ -564,7 +571,8 @@ async def update_rag_config(
         "content_extraction": {
             "engine": request.app.state.config.CONTENT_EXTRACTION_ENGINE,
             "tika_server_url": request.app.state.config.TIKA_SERVER_URL,
-            "pdftotext_server_url": request.app.state.config.PDF
+            "pdftotext_server_url": request.app.state.config.PDFTOTEXT_SERVER_URL,
+            "maxpage_pdftotext": request.app.state.config.MAXPAGE_PDFTOTEXT
         },
         "chunk": {
             "text_splitter": request.app.state.config.TEXT_SPLITTER,
@@ -812,7 +820,7 @@ class ProcessFileForm(BaseModel):
 
 
 @router.post("/process/file")
-def process_file(
+async def process_file(
     request: Request,
     form_data: ProcessFileForm,
     user=Depends(get_verified_user),
@@ -889,11 +897,10 @@ def process_file(
                     PDFTOTEXT_SERVER_URL=request.app.state.config.PDFTOTEXT_SERVER_URL,
                     PDF_EXTRACT_IMAGES=request.app.state.config.PDF_EXTRACT_IMAGES,
                 )
-                docs = loader.load(
-                    file.filename, file.meta.get("content_type"), file_path
-                )
-
                 if engine == "pdftotext":
+                    docs = await loader.load(
+                        file.filename, file.meta.get("content_type"), file_path
+                    )   
                     docs = Document(
                         page_content=docs,
                         metadata={
@@ -904,6 +911,9 @@ def process_file(
                         },
                     )
                 else:
+                    docs = loader.load(
+                        file.filename, file.meta.get("content_type"), file_path
+                    ) 
                     docs = [
                         Document(
                             page_content=doc.page_content,

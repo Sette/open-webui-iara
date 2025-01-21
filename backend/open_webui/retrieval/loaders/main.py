@@ -2,6 +2,7 @@ import requests
 import logging
 import ftfy
 import sys
+import asyncio
 
 from langchain_community.document_loaders import (
     BSHTMLLoader,
@@ -124,11 +125,11 @@ class Loader:
         self.engine = engine
         self.kwargs = kwargs
 
-    def load(
+    async def load(
         self, filename: str, file_content_type: str, file_path: str
     ) -> list[Document]:
         loader = self._get_loader(filename, file_content_type, file_path)
-        docs = loader.load()
+        docs = await loader.load()
 
         if type(docs) == str:
             return docs
@@ -155,7 +156,7 @@ class Loader:
                     mime_type=file_content_type,
                 )
         elif self.engine == "pdftotext" and file_ext == "pdf":
-            loader = PdftotextLoader(file_path, url=self.kwargs.get("PDFTOTEXT_SERVER_URL"))
+            loader = PdftotextLoader(file_path, url=self.kwargs.get("PDFTOTEXT_SERVER_URL"), max_pages = self.kwargs.get("MAXPAGE_PDFTOTEXT") )
         else:
             if file_ext == "pdf":
                 loader = PyPDFLoader(

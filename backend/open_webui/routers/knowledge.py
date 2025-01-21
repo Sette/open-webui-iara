@@ -1,6 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+import asyncio
 import logging
 
 from open_webui.models.knowledge import (
@@ -245,7 +246,7 @@ class KnowledgeFileIdForm(BaseModel):
 
 
 @router.post("/{id}/file/add", response_model=Optional[KnowledgeFilesResponse])
-def add_file_to_knowledge_by_id(
+async def add_file_to_knowledge_by_id(
     request: Request,
     id: str,
     form_data: KnowledgeFileIdForm,
@@ -279,7 +280,7 @@ def add_file_to_knowledge_by_id(
 
     # Add content to the vector database
     try:
-        process_file(
+        await process_file(
             request, ProcessFileForm(file_id=form_data.file_id, collection_name=id)
         )
     except Exception as e:
@@ -324,7 +325,7 @@ def add_file_to_knowledge_by_id(
 
 
 @router.post("/{id}/file/update", response_model=Optional[KnowledgeFilesResponse])
-def update_file_from_knowledge_by_id(
+async def update_file_from_knowledge_by_id(
     request: Request,
     id: str,
     form_data: KnowledgeFileIdForm,
@@ -357,7 +358,7 @@ def update_file_from_knowledge_by_id(
 
     # Add content to the vector database
     try:
-        process_file(
+        await process_file(
             request, ProcessFileForm(file_id=form_data.file_id, collection_name=id)
         )
     except Exception as e:

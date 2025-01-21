@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel
+import asyncio
 import mimetypes
 from urllib.parse import quote
 
@@ -20,7 +21,6 @@ from open_webui.routers.retrieval import process_file, ProcessFileForm
 from open_webui.config import UPLOAD_DIR
 from open_webui.env import SRC_LOG_LEVELS
 from open_webui.constants import ERROR_MESSAGES
-
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -40,7 +40,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=FileModelResponse)
-def upload_file(
+async def upload_file(
     request: Request, file: UploadFile = File(...), user=Depends(get_verified_user)
 ):
     log.info(f"file.content_type: {file.content_type}")
@@ -71,7 +71,7 @@ def upload_file(
         )
 
         try:
-            process_file(request, ProcessFileForm(file_id=id))
+            await process_file(request, ProcessFileForm(file_id=id))
             file_item = Files.get_file_by_id(id=id)
         except Exception as e:
             log.exception(e)
@@ -192,7 +192,7 @@ async def update_file_data_content_by_id(
 
     if file and (file.user_id == user.id or user.role == "admin"):
         try:
-            process_file(
+            await process_file(
                 request, ProcessFileForm(file_id=id, content=form_data.content)
             )
             file = Files.get_file_by_id(id=id)
