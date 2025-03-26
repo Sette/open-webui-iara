@@ -48,7 +48,10 @@
 
 	let contentExtractionEngine = 'default';
 	let tikaServerUrl = '';
+	let pdftotextServerUrl = '';
 	let showTikaServerUrl = false;
+	let showPdftotextServerUrl = false;
+	let maxpagesPdftotext = 15;
 
 	let textSplitter = '';
 	let chunkSize = 0;
@@ -191,7 +194,9 @@
 			},
 			content_extraction: {
 				engine: contentExtractionEngine,
-				tika_server_url: tikaServerUrl
+				tika_server_url: tikaServerUrl,
+				pdftotext_server_url: pdftotextServerUrl,
+				maxpages_pdftotext: maxpagesPdftotext
 			}
 		});
 
@@ -248,8 +253,11 @@
 
 			contentExtractionEngine = res.content_extraction.engine;
 			tikaServerUrl = res.content_extraction.tika_server_url;
+			pdftotextServerUrl = res.content_extraction.pdftotext_server_url
+			maxpagesPdftotext = res.content_extraction.maxpages_pdftotext
+			
 			showTikaServerUrl = contentExtractionEngine === 'tika';
-
+            showPdftotextServerUrl = contentExtractionEngine === 'pdftotext';
 			fileMaxSize = res?.file.max_size ?? '';
 			fileMaxCount = res?.file.max_count ?? '';
 
@@ -585,21 +593,43 @@
 						bind:value={contentExtractionEngine}
 						on:change={(e) => {
 							showTikaServerUrl = e.target.value === 'tika';
+							showPdftotextServerUrl = e.target.value === 'pdftotext';
 						}}
 					>
 						<option value="">{$i18n.t('Default')} </option>
 						<option value="tika">{$i18n.t('Tika')}</option>
+						<option value="pdftotext">{$i18n.t('Pdftotext')}</option>
 					</select>
 				</div>
 			</div>
 
-			{#if showTikaServerUrl}
+			{#if contentExtractionEngine === 'tika'}
 				<div class="flex w-full mt-1">
 					<div class="flex-1 mr-2">
 						<input
 							class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-hidden"
 							placeholder={$i18n.t('Enter Tika Server URL')}
 							bind:value={tikaServerUrl}
+						/>
+					</div>
+				</div>
+			{:else if contentExtractionEngine === 'pdftotext'}
+				<div class="flex w-full mt-1">
+					<div class="flex-1 mr-2">
+						<input
+							class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-none"
+							placeholder={$i18n.t('Enter Pdftotext Server URL')}
+							bind:value={pdftotextServerUrl}
+						/>
+					</div>
+				</div>
+				<div class="flex flex-col w-full gap-1">
+					<div class=" text-xs font-medium w-full">{$i18n.t('Max Pages')}</div>
+					<div class="flex-1 mr-2">
+						<input
+							class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-none"
+							placeholder={$i18n.t('Enter max page limit')}
+							bind:value={maxpagesPdftotext}
 						/>
 					</div>
 				</div>

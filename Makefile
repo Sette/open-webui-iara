@@ -5,6 +5,11 @@ else
     DOCKER_COMPOSE := docker compose
 endif
 
+image_name="open-webui-iara"
+container_name:="open-webui-iara"
+host_port:=3000
+container_port:=8080
+
 install:
 	$(DOCKER_COMPOSE) up -d
 
@@ -31,3 +36,21 @@ update:
 	$(DOCKER_COMPOSE) up --build -d
 	$(DOCKER_COMPOSE) start
 
+build:
+	@echo "--> Docker build"
+	@docker build -t docker-unj-repo.softplan.com.br/unj/inovacao/openwebui-iara:0.5.16 .
+
+create-buildx:
+	@docker buildx create --use
+
+buildx:
+	@docker buildx build  --platform linux/arm64,linux/amd64 -t docker-unj-repo.softplan.com.br/unj/inovacao/openwebui-iara:0.5.16 --push .
+
+buildx-arm:
+	@docker buildx build  --platform linux/arm64 -t docker-unj-repo.softplan.com.br/unj/inovacao/openwebui-iara:0.5.16 --push .
+
+buildx-amd:
+	@docker buildx build  --platform linux/amd64 -t docker-unj-repo.softplan.com.br/unj/inovacao/openwebui-iara:0.5.16 --push .
+
+run:
+	@docker run -p 3000:8080 --env WEB_CONCURRENCY=1 -add-host=host.docker.internal:host-gateway -v "/app/backend/data:/app/backend/data" --name docker-unj-repo.softplan.com.br/unj/inovacao/openwebui-iara:0.5.16 --restart always

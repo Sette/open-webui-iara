@@ -18,6 +18,10 @@ from langchain_community.document_loaders import (
     UnstructuredXMLLoader,
     YoutubeLoader,
 )
+
+
+from open_webui.retrieval.loaders.pdftotext import PdftotextLoader, PdftotextLoaderAsync
+
 from langchain_core.documents import Document
 from open_webui.env import SRC_LOG_LEVELS, GLOBAL_LOG_LEVEL
 
@@ -119,21 +123,33 @@ class Loader:
     def __init__(self, engine: str = "", **kwargs):
         self.engine = engine
         self.kwargs = kwargs
+        self.loader = None
 
     def load(
-        self, filename: str, file_content_type: str, file_path: str
+        self, filename: str, file_content_type: str, file_path: str, isasync: bool = False
     ) -> list[Document]:
-        loader = self._get_loader(filename, file_content_type, file_path)
-        docs = loader.load()
+        self.loader = self._get_loader(filename, file_content_type, file_path, isasync)
 
-        return [
-            Document(
-                page_content=ftfy.fix_text(doc.page_content), metadata=doc.metadata
-            )
-            for doc in docs
-        ]
+        if not isasync:
+            docs = self.loader.load()
 
-    def _get_loader(self, filename: str, file_content_type: str, file_path: str):
+            if type(docs) == str:
+                return [
+                Document(
+                        page_content=docs
+                    )
+                ]
+
+            return [
+                Document(
+                    page_content=ftfy.fix_text(doc.page_content), metadata=doc.metadata
+                )
+                for doc in docs
+            ]
+        else:
+            return self.loader.load()
+
+    def _get_loader(self, filename: str, file_content_type: str, file_path: str, isasync: bool = False):
         file_ext = filename.split(".")[-1].lower()
 
         if self.engine == "tika" and self.kwargs.get("TIKA_SERVER_URL"):
@@ -147,12 +163,22 @@ class Loader:
                     file_path=file_path,
                     mime_type=file_content_type,
                 )
-        else:
-            if file_ext == "pdf":
+        elif file_ext == "pdf":
+            if self.engine == "pdftotext":
+                if isasync:
+                    loader = PdftotextLoaderAsync(
+                        pdf_path=file_path,
+                        url=self.kwargs.get("PDFTOTEXT_SERVER_URL"),
+                        max_pages=self.kwargs.get("MAXPAGES_PDFTOTEXT"),
+                    )
+                else:
+                    loader = PdftotextLoader(file_path, url=self.kwargs.get("PDFTOTEXT_SERVER_URL"), max_pages = self.kwargs.get("MAXPAGES_PDFTOTEXT"))
+            else:
                 loader = PyPDFLoader(
                     file_path, extract_images=self.kwargs.get("PDF_EXTRACT_IMAGES")
                 )
-            elif file_ext == "csv":
+        else:
+            if file_ext == "csv":
                 loader = CSVLoader(file_path)
             elif file_ext == "rst":
                 loader = UnstructuredRSTLoader(file_path, mode="elements")
