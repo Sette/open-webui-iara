@@ -1,6 +1,9 @@
 # tasks.py
 import json
+import os
 import logging
+import mimetypes
+import base64
 from uuid import uuid4
 
 from datetime import datetime
@@ -37,45 +40,82 @@ log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
 
 
+def generate_file_path(data_b64, filename, content_type, save_dir="/tmp"):
+    # Determine the file extension from the content type
+    extension = mimetypes.guess_extension(content_type) or ''
+
+    # If the filename does not have the proper extension, append it
+    if not filename.endswith(extension):
+        filename += extension
+
+    # Decode the base64 file content
+    file_bytes = base64.b64decode(data_b64)
+
+    # Ensure the save directory exists
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Construct full file path
+    file_path = os.path.join(save_dir, filename)
+
+    # Save the file
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
+    return file_path
+
+
+def delete_file(file_path):
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return True  # Arquivo deletado com sucesso
+        else:
+            print(f"Arquivo não encontrado: {file_path}")
+            return False  # Arquivo não existia
+    except Exception as e:
+        print(f"Erro ao deletar o arquivo: {e}")
+        return False  # Ocorreu um erro
+
+
 @celery_app.task
 def process_tasks(args):
     """Executa OCR e processamento do PDF de forma assíncrona."""
     try:
         content = process_file_celery(args)
 
-        return {"status": "completed", "result": content, "cd_hash": args["task_id"]}
+        return {"status": "completed", "result": content, "cd_hash": args["file_id"]}
     except Exception as e:
         log.exception("Erro na tarefa em background")
-        return {"status": "failed", "error": str(e), "cd_hash": args["task_id"]}
+        return {"status": "failed", "error": str(e), "cd_hash": args["file_id"]}
 
 
 def process_file_celery(args):
     try:
-        file = Files.get_file_by_id(args["task_id"])
+        # file = args["file"]
 
         engine = args["engine"]
         is_pdf2text = (
-            engine == "pdftotext" and file.meta.get(
-                "content_type") == "application/pdf"
+            engine == "pdftotext" and args["content_type"] == "application/pdf"
         )
 
         if args["collection_name"] is None:
-            args["collection_name"] = f"file-{file.id}"
+            args["collection_name"] = f"file-{args['file_id']}"
 
         # Process the file and save the content
         # Usage: /files/
-        file_path = file.path
+        # file_path = args["file_path"]
+        file_path = generate_file_path(
+            args["b64_data"], args["filename"], args["content_type"])
         text_content = ""
         if file_path:
-            file_path = Storage.get_file(file_path)
-            file_ext = file.filename.split(".")[-1].lower()
+            # file_path = Storage.get_file(file_path)
+            file_ext = args["filename"].split(".")[-1].lower()
             if file_ext == "pdf":
                 try:
                     is_valid_pdf(args["b64_data"])
                 except InvalidPDFError as e:
                     log.exception(f"Erro na tarefa em background: {e}")
                     raise e
-            file_path = Storage.get_file(file_path)
             loader = Loader(
                 engine=engine,
                 TIKA_SERVER_URL=args["tika_server_url"],
@@ -85,8 +125,8 @@ def process_file_celery(args):
             )
             if is_pdf2text:
                 task_id = loader.load(
-                    file.filename,
-                    file.meta.get("content_type"),
+                    args["filename"],
+                    args["content_type"],
                     file_path,
                     is_async=True,
                 )
@@ -97,10 +137,10 @@ def process_file_celery(args):
                     Document(
                         page_content=text_content,
                         metadata={
-                            "name": file.filename,
-                            "created_by": file.user_id,
-                            "file_id": file.id,
-                            "source": file.filename,
+                            "name": args["filename"],
+                            "created_by":  args["user_id"],
+                            "file_id":  args["file_id"],
+                            "source": args["filename"],
                         },
                     )
                 ]
@@ -109,52 +149,39 @@ def process_file_celery(args):
 
             else:
                 docs = loader.load(
-                    file.filename, file.meta.get("content_type"), file_path
+                    args["filename"], args["content_type"], file_path
                 )
                 docs = [
                     Document(
                         page_content=doc.page_content,
                         metadata={
                             **doc.metadata,
-                            "name": file.filename,
-                            "created_by": file.user_id,
-                            "file_id": file.id,
-                            "source": file.filename,
+                            "name":  args["filename"],
+                            "created_by": args["user_id"],
+                            "file_id": args["file_id"],
+                            "source":  args["filename"],
                         },
                     )
                     for doc in docs
                 ]
-        else:
-            docs = [
-                Document(
-                    page_content=file.data.get("content", ""),
-                    metadata={
-                        **file.meta,
-                        "name": file.filename,
-                        "created_by": file.user_id,
-                        "file_id": file.id,
-                        "source": file.filename,
-                    },
-                )
-            ]
 
         if not is_pdf2text:
             text_content = " ".join([doc.page_content for doc in docs])
 
         Files.update_file_data_by_id(
-            file.id,
+            args["user_id"],
             {"content": text_content},
         )
 
         hash = calculate_sha256_string(text_content)
-        Files.update_file_hash_by_id(file.id, hash)
+        Files.update_file_hash_by_id(args["file_id"], hash)
 
         try:
             result = save_docs_to_vector_db_celery(
                 docs=docs,
                 metadata={
-                    "file_id": file.id,
-                    "name": file.filename,
+                    "file_id": args["file_id"],
+                    "name": args["file_id"],
                     "hash": hash,
                 },
                 add=(True if args["collection_name"] else False),
@@ -163,16 +190,18 @@ def process_file_celery(args):
 
             if result:
                 Files.update_file_metadata_by_id(
-                    file.id,
+                    args["file_id"],
                     {
                         "collection_name": args["collection_name"],
                     },
                 )
 
+                delete_file(file_path)
+
                 return {
                     "status": True,
                     "collection_name": args["collection_name"],
-                    "filename": file.filename,
+                    "filename": args["filename"],
                     "content": text_content,
                 }
         except Exception as e:

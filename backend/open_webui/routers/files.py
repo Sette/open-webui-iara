@@ -126,9 +126,9 @@ async def upload_file_async(
     filename = os.path.basename(unsanitized_filename)
 
     # replace filename with uuid
-    task_id = str(uuid4())
+    file_id = str(uuid4())
     name = filename
-    filename = f"{id}_{filename}"
+    filename = f"{file_id}_{filename}"
     contents, file_path = Storage.upload_file(file.file, filename)
 
     b64_data = base64.b64encode(contents).decode("utf-8")
@@ -137,7 +137,7 @@ async def upload_file_async(
         user.id,
         FileForm(
             **{
-                "id": task_id,
+                "id": file_id,
                 "filename": name,
                 "path": file_path,
                 "meta": {
@@ -149,14 +149,17 @@ async def upload_file_async(
         ),
     )
     # Envia a task pro RabbitMQ via Celery
-    form_data = ProcessFileForm(file_id=task_id)
+    file = Files.get_file_by_id(file_id)
+    form_data = ProcessFileForm(file_id=file_id)
     # Adiciona os parâmetros necessários para o processamento
     # da task
     # args = {
     #     "b64_data": b64_data,
     #     "collection_name": form_data.collection_name,
     #     "text_splitter": request.app.state.config.TEXT_SPLITTER,
-    #     "task_id": task_id,
+    #     "file_id": file_id,
+    #     "content_type": content_type,
+    #     "filename": filename,
     #     "chunk_overlap": request.app.state.config.CHUNK_OVERLAP,
     #     "chunk_size": request.app.state.config.CHUNK_SIZE,
     #     "engine": request.app.state.config.CONTENT_EXTRACTION_ENGINE,
@@ -176,7 +179,10 @@ async def upload_file_async(
     args = {'b64_data': b64_data,
             'collection_name': form_data.collection_name,
             'text_splitter': request.app.state.config.TEXT_SPLITTER,
-            'task_id': task_id,
+            'file_id': file_id,
+            'content_type': file.meta.get("content_type"),
+            'filename': filename,
+            'user_id': user.id,
             'chunk_overlap': request.app.state.config.CHUNK_OVERLAP,
             'chunk_size': request.app.state.config.CHUNK_SIZE,
             'engine': request.app.state.config.CONTENT_EXTRACTION_ENGINE,
@@ -195,13 +201,13 @@ async def upload_file_async(
 
     try:
         async_result = process_tasks.delay(args=args)
-        message = f"Task {task_id} adicionada à fila de processamento"
-        log.info(f"Task {task_id} adicionada à fila de processamento")
+        message = f"Task {async_result.id} adicionada à fila de processamento"
+        log.info(f"Task {async_result.id} adicionada à fila de processamento")
     except Exception as e:
         log.exception(e)
-        log.error(f"Error processing file: {task_id}")
-        message = f"Task {task_id} falhou ao ser processada"
-        return AsyncTaskResponse(task_id=task_id, status="Error", message=message)
+        log.error(f"Error processing file: {file_id}")
+        message = f"Task {file_id} falhou ao ser processada"
+        return AsyncTaskResponse(task_id=file_id, status="Error", message=message)
     return AsyncTaskResponse(task_id=async_result.id, status="queued", message=message)
 
 ############################
@@ -216,7 +222,7 @@ async def get_task_status(task_id: str):
     return {"task_id": task_id, "result": res.result if res.ready() else None}
 
 
-############################
+# filename
 # List Files
 ############################
 
