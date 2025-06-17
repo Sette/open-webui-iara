@@ -60,6 +60,7 @@ def generate_file_path(data_b64, filename, content_type, save_dir="/tmp"):
     # Save the file
     with open(file_path, "wb") as f:
         f.write(file_bytes)
+        f.close()
 
     return file_path
 
@@ -99,7 +100,10 @@ def process_file_celery(args):
         )
 
         if args["collection_name"] is None:
-            args["collection_name"] = f"file-{args['file_id']}"
+            log.info(
+                "Collection name is None, setting it to file_id"
+            )
+            args["collection_name"] = f"File-{args['file_id']}"
 
         # Process the file and save the content
         # Usage: /files/
@@ -177,6 +181,7 @@ def process_file_celery(args):
         Files.update_file_hash_by_id(args["file_id"], hash)
 
         try:
+            log.info("Save docs to vector db with celery")
             result = save_docs_to_vector_db_celery(
                 docs=docs,
                 metadata={
@@ -204,6 +209,8 @@ def process_file_celery(args):
                     "filename": args["filename"],
                     "content": text_content,
                 }
+            else:
+                raise e
         except Exception as e:
             raise e
 
@@ -242,10 +249,18 @@ def save_docs_to_vector_db_celery(
 
     # Check if entries with the same hash (metadata.hash) already exist
     if metadata and "hash" in metadata:
+        log.info(
+            f"Checking if document with hash {metadata['hash']} already exists in collection {args['collection_name']}"
+        )
         result = VECTOR_DB_CLIENT.query(
             collection_name=args["collection_name"],
             filter={"hash": metadata["hash"]},
         )
+        
+        log.info(
+            f"Query result for hash {metadata['hash']}: {result}"
+        )
+        # If the result is not None and has ids, it means the document already exists
 
         if result is not None:
             existing_doc_ids = result.ids[0]
@@ -284,6 +299,11 @@ def save_docs_to_vector_db_celery(
         raise ValueError(ERROR_MESSAGES.EMPTY_CONTENT)
 
     texts = [doc.page_content for doc in docs]
+    
+    log.info(
+        f"Saving {len(texts)} documents to vector db with collection {args['collection_name']}"
+    )
+    
     metadatas = [
         {
             **doc.metadata,
@@ -310,7 +330,19 @@ def save_docs_to_vector_db_celery(
                 metadata[key] = str(value)
 
     try:
-        if VECTOR_DB_CLIENT.has_collection(collection_name=args["collection_name"]):
+        log.info(
+            f"Checking if collection {args['collection_name']} exists in vector db"
+        )
+        has_collection = VECTOR_DB_CLIENT.has_collection(
+            collection_name=args["collection_name"]
+        )
+        
+        log.info(
+            f"Collection {args['collection_name']} exists: {has_collection}"
+        )
+        # If the collection already exists and overwrite is False, return True
+        
+        if has_collection:
             log.info(f"collection {args['collection_name']} already exists")
 
             if overwrite:
@@ -370,7 +402,9 @@ def save_docs_to_vector_db_celery(
                 }
                 for idx, text in enumerate(texts)
             ]
-
+        log.info(
+            f"Inserting {len(items)} items into collection with weaviate {args['collection_name']}"
+        )
         VECTOR_DB_CLIENT.insert(
             collection_name=args["collection_name"],
             items=items,
@@ -378,5 +412,4 @@ def save_docs_to_vector_db_celery(
 
         return True
     except Exception as e:
-        log.exception(e)
         raise e

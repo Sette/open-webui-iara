@@ -40,7 +40,7 @@ export DATA_DIR="$SCRIPT_DIR/data"
 
 
 echo "Iniciando o Celery worker..."
-celery -A open_webui.celery_worker worker --loglevel=INFO --concurrency=10 &
+celery -A open_webui.celery_worker worker --loglevel=INFO --concurrency=1 &
 CELERY_PID=$!
 
 trap "kill $CELERY_PID" SIGINT SIGTERM

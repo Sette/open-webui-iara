@@ -84,8 +84,11 @@ class WeaviateClient:
         and ensuring it starts with 'C' for consistency.
         """
         collection_name = re.sub(r"[^a-zA-Z0-9]", "", collection_name)
-        if not (collection_name.startswith("c") or collection_name.startswith("C")):
-            collection_name = f"c{collection_name}"
+        log.info(f"Transformed collection name: {collection_name}")
+        # Ensure the collection name starts with 'C' or 'File'
+        # If it does not start with 'C' or 'File', prepend 'C'
+        if not (collection_name.startswith("C") or collection_name.startswith("File")):
+            collection_name = f"C{collection_name}"
 
         return collection_name.capitalize()
 
@@ -93,11 +96,16 @@ class WeaviateClient:
         """
         Checks if a collection (class) already exists.
         """
-        # try:
-        collection_names = self.client.collections.list_all()
-        return collection_name in collection_names
-        # except Exception:
-        #    return False
+        try:
+            collection = self.client.collections.get(collection_name)
+            if collection:
+                log.info(f"Collection {collection_name} found.")
+        except:
+            log.error(
+                f"Collection {collection_name} not found. Returning False."
+            )
+            return False
+        return True
 
     def _ensure_collection(self, collection_name: str):
         """
@@ -105,7 +113,6 @@ class WeaviateClient:
         """
         log.info(f"Collection para buscar: {collection_name}")
         if not self.has_collection(collection_name):
-            log.info("Creating collection %s", collection_name)
             self.create_collection(collection_name)
 
     def create_collection(self, collection_name: str):
@@ -115,6 +122,8 @@ class WeaviateClient:
           - Defines 'documents' and 'metadata' properties
         """
         collection_name = self.transform_collection_name(collection_name)
+        log.info(f"Creating collection: {collection_name}")
+        # Remove the collection if it already exists
         self.client.collections.create(
             collection_name,
             vectorizer_config=[
@@ -166,7 +175,16 @@ class WeaviateClient:
         """
         collection_name = self.transform_collection_name(collection_name)
         self._ensure_collection(collection_name)
-        collection = self.client.collections.get(collection_name)
+        try:
+            collection = self.client.collections.get(collection_name)
+            if collection:
+                log.info(f"Collection {collection_name} found.")
+        except:
+            log.error(
+                f"Collection {collection_name} not found. Returning None."
+            )
+            return None
+        
 
         data_object = [
             {
@@ -177,6 +195,10 @@ class WeaviateClient:
             }
             for item in items
         ]
+        
+        log.info(
+            f"Inserting {len(data_object)} items into collection '{collection_name}'"
+        )
 
         with collection.batch.dynamic() as batch:
             for data_row in data_object:
@@ -223,7 +245,16 @@ class WeaviateClient:
         e retorna os resultados encapsulados em GetResult.
         """
         collection_name = self.transform_collection_name(collection_name)
-        collection = self.client.collections.get(collection_name)
+        try:
+            collection = self.client.collections.get(collection_name)
+            if collection:
+                log.info(f"Collection {collection_name} found.")
+        except:
+            log.error(
+                f"Collection {collection_name} not found. Returning None."
+            )
+            return None
+        
 
         filter_condition = build_filter(filter)
 
@@ -245,7 +276,9 @@ class WeaviateClient:
                             for obj in items]
                     return GetResult(ids=[ids], documents=[docs], metadatas=[meta])
         except:
-            pass
+            raise Exception(
+                f"Erro ao consultar a collection {collection_name} com o filtro {filter}"
+            )
         return None
 
     def get(

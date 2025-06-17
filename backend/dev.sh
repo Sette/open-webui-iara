@@ -32,7 +32,7 @@ fi
 
 
 PORT="${PORT:-3030}" # This line can stay, or PORT could also be in config.env
-uvicorn open_webui.main:app --port $PORT --host 0.0.0.0 --log-level=info --forwarded-allow-ips '*' --reload &
+uvicorn open_webui.main:app --port $PORT --host 0.0.0.0 --log-level=info --forwarded-allow-ips '*'  &
 FASTAPI_PID=$!
 
 # sleep 10
