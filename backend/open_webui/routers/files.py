@@ -219,9 +219,12 @@ async def get_task_status(task_id: str):
     state_json = redis_client.get(redis_key)
     if state_json:
         state = json.loads(state_json)
+        status = state.get("status", "not_found")
+        if status == "Process completed":
+            status = "Processing Completed"
         return {
             "task_id": task_id,
-            "status": state.get("status", "not_found"),
+            "status": status,
             "error": state.get("error"),
         }
     return {
