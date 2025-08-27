@@ -341,12 +341,6 @@ ENABLE_REALTIME_CHAT_SAVE = (
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
 ####################################
-# Rabbit
-####################################
-
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
-
-####################################
 # WEBUI_AUTH (Required for security)
 ####################################
 
