@@ -361,6 +361,7 @@ async def get_rag_config(request: Request, user=Depends(get_admin_user)):
             "tika_server_url": request.app.state.config.TIKA_SERVER_URL,
             "pdftotext_server_url": request.app.state.config.PDFTOTEXT_SERVER_URL,
             "maxpages_pdftotext": request.app.state.config.MAXPAGES_PDFTOTEXT,
+            "use_tesseract": request.app.state.config.USE_TESSERACT,
         },
         "chunk": {
             "text_splitter": request.app.state.config.TEXT_SPLITTER,
@@ -421,6 +422,7 @@ class ContentExtractionConfig(BaseModel):
     tika_server_url: Optional[str] = None
     pdftotext_server_url: Optional[str] = None
     maxpages_pdftotext: Optional[int] = None
+    use_tesseract: Optional[bool] = None
 
 
 class ChunkParamUpdateForm(BaseModel):
@@ -523,6 +525,10 @@ async def update_rag_config(
             form_data.content_extraction.maxpages_pdftotext
         )
 
+        request.app.state.config.USE_TESSERACT = (
+            form_data.content_extraction.use_tesseract
+        )
+
     if form_data.chunk is not None:
         request.app.state.config.TEXT_SPLITTER = form_data.chunk.text_splitter
         request.app.state.config.CHUNK_SIZE = form_data.chunk.chunk_size
@@ -620,6 +626,7 @@ async def update_rag_config(
             "tika_server_url": request.app.state.config.TIKA_SERVER_URL,
             "pdftotext_server_url": request.app.state.config.PDFTOTEXT_SERVER_URL,
             "maxpages_pdftotext": request.app.state.config.MAXPAGES_PDFTOTEXT,
+            "use_tesseract": request.app.state.config.USE_TESSERACT,
         },
         "chunk": {
             "text_splitter": request.app.state.config.TEXT_SPLITTER,
@@ -983,6 +990,7 @@ def process_file(
                     PDFTOTEXT_SERVER_URL=request.app.state.config.PDFTOTEXT_SERVER_URL,
                     PDF_EXTRACT_IMAGES=request.app.state.config.PDF_EXTRACT_IMAGES,
                     MAXPAGES_PDFTOTEXT=request.app.state.config.MAXPAGES_PDFTOTEXT,
+                    USE_TESSERACT=request.app.state.config.USE_TESSERACT,
                 )
                 docs = loader.load(
                     file.filename, file.meta.get("content_type"), file_path

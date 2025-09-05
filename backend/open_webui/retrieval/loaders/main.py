@@ -107,7 +107,8 @@ class TikaLoader:
 
         if r.ok:
             raw_metadata = r.json()
-            text = raw_metadata.get("X-TIKA:content", "<No text content found>")
+            text = raw_metadata.get(
+                "X-TIKA:content", "<No text content found>")
 
             if "Content-Type" in raw_metadata:
                 headers["Content-Type"] = raw_metadata["Content-Type"]
@@ -132,7 +133,8 @@ class Loader:
         file_path: str,
         is_async: bool = False,
     ) -> list[Document]:
-        self.loader = self._get_loader(filename, file_content_type, file_path, is_async)
+        self.loader = self._get_loader(
+            filename, file_content_type, file_path, is_async)
 
         if not is_async:
             docs = self.loader.load()
@@ -185,7 +187,8 @@ class Loader:
                     )
             else:
                 loader = PyPDFLoader(
-                    file_path, extract_images=self.kwargs.get("PDF_EXTRACT_IMAGES")
+                    file_path, extract_images=self.kwargs.get(
+                        "PDF_EXTRACT_IMAGES")
                 )
         else:
             if file_ext == "csv":
@@ -195,7 +198,8 @@ class Loader:
             elif file_ext == "xml":
                 loader = UnstructuredXMLLoader(file_path)
             elif file_ext in ["htm", "html"]:
-                loader = BSHTMLLoader(file_path, open_encoding="unicode_escape")
+                loader = BSHTMLLoader(
+                    file_path, open_encoding="unicode_escape")
             elif file_ext == "md":
                 loader = TextLoader(file_path, autodetect_encoding=True)
             elif file_content_type == "application/epub+zip":
