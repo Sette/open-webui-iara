@@ -28,6 +28,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Textarea from '$lib/components/common/Textarea.svelte';
+	import { use } from 'i18next';
 
 	const i18n = getContext('i18n');
 
@@ -52,6 +53,7 @@
 	let showTikaServerUrl = false;
 	let showPdftotextServerUrl = false;
 	let maxpagesPdftotext = 15;
+	let useTesseract = false;
 
 	let textSplitter = '';
 	let chunkSize = 0;
@@ -196,7 +198,8 @@
 				engine: contentExtractionEngine,
 				tika_server_url: tikaServerUrl,
 				pdftotext_server_url: pdftotextServerUrl,
-				maxpages_pdftotext: maxpagesPdftotext
+				maxpages_pdftotext: maxpagesPdftotext,
+				use_tesseract: useTesseract
 			}
 		});
 
@@ -255,6 +258,7 @@
 			tikaServerUrl = res.content_extraction.tika_server_url;
 			pdftotextServerUrl = res.content_extraction.pdftotext_server_url
 			maxpagesPdftotext = res.content_extraction.maxpages_pdftotext
+			useTesseract = res.content_extraction.use_tesseract
 			
 			showTikaServerUrl = contentExtractionEngine === 'tika';
             showPdftotextServerUrl = contentExtractionEngine === 'pdftotext';
@@ -630,6 +634,16 @@
 							class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-none"
 							placeholder={$i18n.t('Enter max page limit')}
 							bind:value={maxpagesPdftotext}
+						/>
+					</div>
+				</div>
+				<div class="flex flex-col w-full gap-1">
+					<div class=" text-xs font-medium w-full">{$i18n.t('Use tesseract')}</div>
+					<div class="flex-1 mr-2">
+						<input
+							class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-none"
+							placeholder={$i18n.t('Active tesseract')}
+							bind:value={useTesseract}
 						/>
 					</div>
 				</div>
