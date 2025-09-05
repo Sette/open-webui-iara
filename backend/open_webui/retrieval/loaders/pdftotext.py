@@ -11,6 +11,8 @@ import time
 from open_webui.env import SRC_LOG_LEVELS
 from open_webui.utils.redis_utils import get_status
 
+from open_webui.config import USE_TESSERACT
+
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
 
@@ -47,10 +49,12 @@ class PdftotextLoader:
         }
 
         files = {"pdf_upload": pdf}
-        data = {"max_pages": self.max_pages, "header_footer": True}
+        data = {"max_pages": self.max_pages, "header_footer": True,
+                "tesseract": USE_TESSERACT}
 
         r = requests.post(
-            url=self.url, headers=headers, files=files, data=data, timeout=(60, 60)
+            url=self.url, headers=headers, files=files, data=data, timeout=(
+                60, 60)
         )
         log.info(r)
 
@@ -81,7 +85,8 @@ class PdftotextLoaderAsync:
 
         files = {"pdf_upload": pdf}
 
-        data = {"max_pages": self.max_pages, "header_footer": True, "tesseract": False}
+        data = {"max_pages": self.max_pages,
+                "header_footer": True, "tesseract": USE_TESSERACT}
 
         r = self.send_pdf_ocr(files, data, headers)
 
@@ -103,10 +108,12 @@ class PdftotextLoaderAsync:
 
     def send_pdf_ocr(self, files, data, headers):
         try:
-            r = post_with_retry(url=self.url, headers=headers, files=files, data=data)
+            r = post_with_retry(
+                url=self.url, headers=headers, files=files, data=data)
             return r
         except requests.RequestException as e:
-            log.error(f"Failed to extract text from PDF using OCR after retries: {e}")
+            log.error(
+                f"Failed to extract text from PDF using OCR after retries: {e}")
             raise e
 
     def check_status(self, task_id):
@@ -115,7 +122,7 @@ class PdftotextLoaderAsync:
         """
         status_url = f"{self.base_url}/task_status/{task_id}"
 
-        r = requests.get(url=status_url, timeout=30)
+        r = requests.get(url=status_url, timeout=(60, 60))
 
         if r.status_code != 200:
             log.error(
@@ -143,7 +150,8 @@ class PdftotextLoaderAsync:
 
             # Timeout check
             if time.time() - start_time > timeout:
-                raise Exception(f"OCR task {task_id} timed out after {timeout} seconds")
+                raise Exception(
+                    f"OCR task {task_id} timed out after {timeout} seconds")
 
         if status == "completed":
             result = self.check_status(task_id)

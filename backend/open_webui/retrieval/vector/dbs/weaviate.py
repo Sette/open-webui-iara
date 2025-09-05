@@ -17,17 +17,22 @@ from open_webui.env import SRC_LOG_LEVELS
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
 
+
 def get_headers() -> dict:
     return {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {WEAVIATE_API_KEY}"
     }
-    
+
+
 def test_connection(url):
     headers = get_headers()
-    
+
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url,
+                                headers=headers,
+                                timeout=(60, 60),
+                                )
         if response.status_code == 200:
             return True
         else:
@@ -53,6 +58,7 @@ def build_graphql_filter(filter_dict, operator="Equal"):
             return "valueString"
         else:
             raise ValueError(f"Tipo de valor '{type(value)}' não suportado.")
+
     def format_path(key):
         if isinstance(key, (tuple, list)):
             return "[" + ",".join(f'"{k}"' for k in key) + "]"
@@ -61,7 +67,8 @@ def build_graphql_filter(filter_dict, operator="Equal"):
     conditions = []
     for key, value in filter_dict.items():
         gk = get_value_key(value)
-        vstr = f'"{value}"' if isinstance(value, str) else str(value).lower() if isinstance(value, bool) else value
+        vstr = f'"{value}"' if isinstance(value, str) else str(
+            value).lower() if isinstance(value, bool) else value
         path_str = format_path(key)
         condition = f'{{path: {path_str}, operator: {operator}, {gk}: {vstr}}}'
         conditions.append(condition)
@@ -73,13 +80,14 @@ def build_graphql_filter(filter_dict, operator="Equal"):
 class WeaviateClient:
     def __init__(self):
         self.headers = get_headers()
-        
+
     def warmup(self):
         if WEAVIATE_HTTP_PORT == 443 or WEAVIATE_HTTP_PORT == 80:
             self.base_url = f"{WEAVIATE_HTTP_PROTOCOL}://{WEAVIATE_HTTP_HOST}"
         else:
             self.base_url = f"{WEAVIATE_HTTP_PROTOCOL}://{WEAVIATE_HTTP_HOST}:{WEAVIATE_HTTP_PORT}"
         log.info(f"Connecting to Weaviate at {self.base_url}")
+
     def transform_collection_name(self, collection_name: str) -> str:
         """
         Transforms the collection name to a valid Weaviate class name.
@@ -92,9 +100,12 @@ class WeaviateClient:
 
     def has_collection(self, collection_name: str) -> bool:
         url = f"{self.base_url}/v1/schema"
-        resp = requests.get(url, headers=self.headers)
+        resp = requests.get(url,
+                            headers=self.headers,
+                            timeout=(60, 60),
+                            )
         if resp.status_code == 200:
-            classes = [c['class'] for c in resp.json().get("classes",[])]
+            classes = [c['class'] for c in resp.json().get("classes", [])]
             return self.transform_collection_name(collection_name) in classes
         return False
 
@@ -123,14 +134,14 @@ class WeaviateClient:
                 }
             },
             "properties": [
-                    {"name": "file_id", "dataType": ["text"]},
-                    {"name": "documents", "dataType": ["text"]},
-                    {"name": "hash", "dataType": ["text"]},
-                    {"name": "name", "dataType": ["text"]},
-                    {
-                        "name": "metadata",
-                        "dataType": ["object"],
-                        "nestedProperties": [
+                {"name": "file_id", "dataType": ["text"]},
+                {"name": "documents", "dataType": ["text"]},
+                {"name": "hash", "dataType": ["text"]},
+                {"name": "name", "dataType": ["text"]},
+                {
+                    "name": "metadata",
+                    "dataType": ["object"],
+                    "nestedProperties": [
                             {"name": "content_type", "dataType": ["text"]},
                             {"name": "size", "dataType": ["int"]},
                             {"name": "collection_name", "dataType": ["text"]},
@@ -138,13 +149,17 @@ class WeaviateClient:
                             {"name": "source", "dataType": ["text"]},
                             {"name": "start_index", "dataType": ["int"]},
                             {"name": "embedding_config", "dataType": ["text"]},
-                        ]
-                    }
+                    ]
+                }
             ]
         }
 
         url = f"{self.base_url}/v1/schema"
-        resp = requests.post(url, headers=self.headers, json=schema)
+        resp = requests.post(url,
+                             headers=self.headers,
+                             json=schema,
+                             timeout=(60, 60),
+                             )
         log.info(f"Create collection {class_name}")
         if not resp.ok:
             raise Exception(f"Error creating collection: {resp.text}")
@@ -155,11 +170,15 @@ class WeaviateClient:
         """
         class_name = self.transform_collection_name(collection_name)
         url = f"{self.base_url}/v1/schema/{class_name}"
-        resp = requests.delete(url, headers=self.headers)
+        resp = requests.delete(url,
+                               headers=self.headers,
+                               timeout=(60, 60),
+                               )
         if resp.ok:
             log.info(f"Deleted collection (class) {class_name}")
         else:
-            log.error(f"Failed to delete collection {class_name}: {resp.status_code} {resp.text}")
+            log.error(
+                f"Failed to delete collection {class_name}: {resp.status_code} {resp.text}")
 
     def insert(self, collection_name: str, items: List[VectorItem]):
         class_name = self.transform_collection_name(collection_name)
@@ -182,7 +201,11 @@ class WeaviateClient:
                     "metadata": item["metadata"],
                 }
             }
-            resp = requests.post(url, headers=self.headers, json=data)
+            resp = requests.post(url,
+                                 headers=self.headers,
+                                 json=data,
+                                 timeout=(60, 60),
+                                 )
             if resp.status_code not in [200, 201]:
                 log.error(f"Failed to insert: {resp.text}")
 
@@ -216,7 +239,7 @@ class WeaviateClient:
     ) -> Optional[GetResult]:
         collection_name = self.transform_collection_name(collection_name)
         where_clause = build_graphql_filter(filter)
-        
+
         query = """
         {
             Get {
@@ -233,7 +256,11 @@ class WeaviateClient:
         """ % (collection_name, limit, where_clause)
         url = f"{self.base_url}/v1/graphql"
         try:
-            resp = requests.post(url, headers=self.headers, json={"query": query})
+            resp = requests.post(url,
+                                 headers=self.headers,
+                                 json={"query": query},
+                                 timeout=(60, 60),
+                                 )
             resp.raise_for_status()
             items = resp.json().get("data", {}).get("Get", {}).get(collection_name, [])
             log.info(items)
@@ -266,11 +293,15 @@ class WeaviateClient:
             }
             }
             """, class_name)
-        
+
         body = {"query": query}
-        
+
         try:
-            resp = requests.post(url, headers=self.headers, json=body)
+            resp = requests.post(url,
+                                 headers=self.headers,
+                                 json=body,
+                                 timeout=(60, 60),
+                                 )
             items = resp.json().get("data", {}).get("Get", {}).get(class_name, [])
             log.info(items)
             if items:
@@ -312,23 +343,28 @@ class WeaviateClient:
             }}
         """
         url = f"{self.base_url}/v1/graphql"
-        resp = requests.post(url, headers=self.headers, json={"query": graphql_query})
-        
-        
+        resp = requests.post(url,
+                             headers=self.headers,
+                             json={"query": graphql_query},
+                             timeout=(60, 60),
+                             )
+
         if resp.ok:
             items = resp.json().get("data", {}).get("Get", {}).get(class_name, [])
             ids = [obj.get("file_id", "") for obj in items]
             docs = [obj.get("documents", "") for obj in items]
             meta = [obj.get("metadata", {}) for obj in items]
-            distance = [obj.get('_additional', {}).get("distance", "") for obj in items]
+            distance = [obj.get('_additional', {}).get(
+                "distance", "") for obj in items]
             return SearchResult(
-                ids=[ids], documents=[docs], metadatas=[meta], distances=[distance]
+                ids=[ids], documents=[docs], metadatas=[
+                    meta], distances=[distance]
             )
-           
+
         else:
             log.error(f"Error in search: {resp.status_code} {resp.text}")
             return None
-        
+
     def hybrid_search(self, collection_name: str, query: str, limit: int = 10, alpha: float = 0.5) -> Optional[list]:
         """
         Busca híbrida texto/vetor via GraphQL (campo 'hybrid').
@@ -360,27 +396,33 @@ class WeaviateClient:
         }}
         """
         url = f"{self.base_url}/v1/graphql"
-        resp = requests.post(url, headers=self.headers, json={"query": graphql_query})
+        resp = requests.post(url,
+                             headers=self.headers,
+                             json={"query": graphql_query},
+                             timeout=(60, 60),
+                             )
         if resp.ok:
             items = resp.json().get("data", {}).get("Get", {}).get(class_name, [])
             ids = [obj.get("file_id", "") for obj in items]
             docs = [obj.get("documents", "") for obj in items]
             meta = [obj.get("metadata", {}) for obj in items]
-            score = [obj.get('_additional', {}).get("score", "") for obj in items]
+            score = [obj.get('_additional', {}).get("score", "")
+                     for obj in items]
             return SearchResult(
-                ids=[ids], documents=[docs], metadatas=[meta], distances=[score]
+                ids=[ids], documents=[docs], metadatas=[
+                    meta], distances=[score]
             )
         else:
-            log.error(f"Error in hybrid_search: {resp.status_code} {resp.text}")
+            log.error(
+                f"Error in hybrid_search: {resp.status_code} {resp.text}")
             return None
 
-    
     def delete(
         self,
         collection_name: str,
         ids: Optional[List[str]] = None,
         filter: Optional[dict] = None,
-) -> None:
+    ) -> None:
         """
         Remove objetos de uma collection por lista de IDs ou por filtro (GraphQL).
         - Se ids: deleta objetos diretamente pelos UUIDs informados.
@@ -390,11 +432,16 @@ class WeaviateClient:
         if ids:
             for obj_id in ids:
                 url = f"{self.base_url}/v1/objects/{class_name}/{obj_id}"
-                resp = requests.delete(url, headers=self.headers)
+                resp = requests.delete(
+                    url,
+                    headers=self.headers,
+                    timeout=(60, 60),
+                )
                 if resp.ok:
                     log.info(f"Deleted object {obj_id}")
                 else:
-                    log.error(f"Failed to delete {obj_id}: {resp.status_code} {resp.text}")
+                    log.error(
+                        f"Failed to delete {obj_id}: {resp.status_code} {resp.text}")
         elif filter:
             # Busca os objetos pelo filtro (usando GraphQL para coletar IDs)
             where_clause = build_graphql_filter(filter)
@@ -411,23 +458,34 @@ class WeaviateClient:
             }}
             """
             url = f"{self.base_url}/v1/graphql"
-            resp = requests.post(url, headers=self.headers, json={"query": graphql_query})
+            resp = requests.post(url,
+                                 headers=self.headers,
+                                 json={"query": graphql_query},
+                                 timeout=(60, 60),
+                                 )
             if resp.ok:
                 obj_list = resp.json().get("data", {}).get("Get", {}).get(class_name, [])
                 ids_to_delete = [obj["_additional"]["id"] for obj in obj_list]
                 if ids_to_delete:
                     self.delete(class_name, ids=ids_to_delete)
             else:
-                log.error(f"Error querying for delete: {resp.status_code} {resp.text}")
+                log.error(
+                    f"Error querying for delete: {resp.status_code} {resp.text}")
 
     def reset(self):
         # Remove todas as classes
         url = f"{self.base_url}/v1/schema"
-        schema = requests.get(url, headers=self.headers).json()
+        schema = requests.get(url,
+                              headers=self.headers,
+                              timeout=(60, 60)).json()
         for cl in schema.get("classes", []):
             cname = cl["class"]
             del_url = f"{self.base_url}/v1/schema/{cname}"
-            resp = requests.delete(del_url, headers=self.headers)
+            resp = requests.delete(
+                del_url,
+                headers=self.headers,
+                timeout=(60, 60),
+            )
             if resp.ok:
                 log.info(f"Deleted {cname}")
             else:
