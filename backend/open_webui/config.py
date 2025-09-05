@@ -1624,6 +1624,12 @@ MAXPAGES_PDFTOTEXT = PersistentConfig(
     os.getenv("MAXPAGES_PDFTOTEXT", 15),  # Default for sidecar deployment
 )
 
+USE_TESSERACT = PersistentConfig(
+    "USE_TESSERACT",
+    "rag.use_tesseract",
+    os.getenv("USE_TESSERACT", "true"),
+)
+
 RAG_TOP_K = PersistentConfig(
     "RAG_TOP_K", "rag.top_k", int(os.environ.get("RAG_TOP_K", "3"))
 )
