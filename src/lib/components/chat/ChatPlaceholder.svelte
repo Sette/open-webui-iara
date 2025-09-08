@@ -16,8 +16,9 @@
 
 	export let modelIds = [];
 	export let models = [];
+	export let atSelectedModel;
 
-	export let submitPrompt;
+	export let onSelect = (e) => {};
 
 	let mounted = false;
 	let selectedModelIdx = 0;
@@ -45,7 +46,9 @@
 					>
 						<Tooltip
 							content={marked.parse(
-								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description ?? '')
+								sanitizeResponseContent(
+									models[selectedModelIdx]?.info?.meta?.description ?? ''
+								).replaceAll('\n', '<br>')
 							)}
 							placement="right"
 						>
@@ -53,9 +56,9 @@
 								crossorigin="anonymous"
 								src={model?.info?.meta?.profile_image_url ??
 									($i18n.language === 'dg-DG'
-										? `/doge.png`
+										? `${WEBUI_BASE_URL}/doge.png`
 										: `${WEBUI_BASE_URL}/static/favicon.png`)}
-								class=" size-[2.7rem] rounded-full border-[1px] border-gray-200 dark:border-none"
+								class=" size-[2.7rem] rounded-full border-[1px] border-gray-100 dark:border-none"
 								alt="logo"
 								draggable="false"
 							/>
@@ -67,12 +70,12 @@
 
 		{#if $temporaryChatEnabled}
 			<Tooltip
-				content="This chat won't appear in history and your messages will not be saved."
-				className="w-fit"
-				placement="top-start"
+				content={$i18n.t("This chat won't appear in history and your messages will not be saved.")}
+				className="w-full flex justify-start mb-0.5"
+				placement="top"
 			>
-				<div class="flex items-center gap-2 text-gray-500 font-medium text-lg my-2 w-fit">
-					<EyeSlash strokeWidth="2.5" className="size-5" /> Temporary Chat
+				<div class="flex items-center gap-2 text-gray-500 font-medium text-lg mt-2 w-fit">
+					<EyeSlash strokeWidth="2.5" className="size-5" />{$i18n.t('Temporary Chat')}
 				</div>
 			</Tooltip>
 		{/if}
@@ -85,7 +88,7 @@
 					{#if models[selectedModelIdx]?.name}
 						{models[selectedModelIdx]?.name}
 					{:else}
-						{$i18n.t('Hello, {{name}}', { name: $user.name })}
+						{$i18n.t('Hello, {{name}}', { name: $user?.name })}
 					{/if}
 				</div>
 
@@ -95,7 +98,9 @@
 							class="mt-0.5 text-base font-normal text-gray-500 dark:text-gray-400 line-clamp-3 markdown"
 						>
 							{@html marked.parse(
-								sanitizeResponseContent(models[selectedModelIdx]?.info?.meta?.description)
+								sanitizeResponseContent(
+									models[selectedModelIdx]?.info?.meta?.description
+								).replaceAll('\n', '<br>')
 							)}
 						</div>
 						{#if models[selectedModelIdx]?.info?.meta?.user}
@@ -126,12 +131,11 @@
 		<div class=" w-full font-primary" in:fade={{ duration: 200, delay: 300 }}>
 			<Suggestions
 				className="grid grid-cols-2"
-				suggestionPrompts={models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
+				suggestionPrompts={atSelectedModel?.info?.meta?.suggestion_prompts ??
+					models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
 					$config?.default_prompt_suggestions ??
 					[]}
-				on:select={(e) => {
-					submitPrompt(e.detail);
-				}}
+				{onSelect}
 			/>
 		</div>
 	</div>

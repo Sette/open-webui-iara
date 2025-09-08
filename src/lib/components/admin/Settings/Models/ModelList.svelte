@@ -21,23 +21,34 @@
 		modelIds = modelList;
 	};
 
-	onMount(() => {
-		sortable = Sortable.create(modelListElement, {
-			animation: 150,
-			onUpdate: async (event) => {
-				positionChangeHandler();
-			}
-		});
-	});
+	$: if (modelIds) {
+		init();
+	}
+
+	const init = () => {
+		if (sortable) {
+			sortable.destroy();
+		}
+
+		if (modelListElement) {
+			sortable = new Sortable(modelListElement, {
+				animation: 150,
+				handle: '.model-item-handle',
+				onUpdate: async (event) => {
+					positionChangeHandler();
+				}
+			});
+		}
+	};
 </script>
 
 {#if modelIds.length > 0}
 	<div class="flex flex-col -translate-x-1" bind:this={modelListElement}>
-		{#each modelIds as modelId, modelIdx (modelId)}
+		{#each modelIds as modelId, modelIdx (`${modelId}-${modelIdx}`)}
 			<div class=" flex gap-2 w-full justify-between items-center" id="model-item-{modelId}">
 				<Tooltip content={modelId} placement="top-start">
 					<div class="flex items-center gap-1">
-						<EllipsisVertical className="size-4 cursor-move" />
+						<EllipsisVertical className="size-4 cursor-move model-item-handle" />
 
 						<div class=" text-sm flex-1 py-1 rounded-lg">
 							{#if $models.find((model) => model.id === modelId)}

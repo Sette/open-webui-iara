@@ -50,7 +50,9 @@
 			models.set(
 				await getModels(
 					localStorage.token,
-					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null),
+					false,
+					true
 				)
 			);
 
@@ -95,8 +97,8 @@
 			meta={func?.meta ?? { description: '' }}
 			content={func?.content ?? ''}
 			{clone}
-			on:save={(e) => {
-				saveHandler(e.detail);
+			onSave={(value) => {
+				saveHandler(value);
 			}}
 		/>
 	{/key}

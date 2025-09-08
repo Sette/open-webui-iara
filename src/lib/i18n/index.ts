@@ -26,7 +26,7 @@ const createIsLoadingStore = (i18n: i18nType) => {
 	// if loaded resources are empty || {}, set loading to true
 	i18n.on('loaded', (resources) => {
 		// console.log('loaded:', resources);
-		Object.keys(resources).length !== 0 && isLoading.set(false);
+		isLoading.set(Object.keys(resources).length === 0);
 	});
 
 	// if resources failed loading, set loading to true
@@ -37,11 +37,11 @@ const createIsLoadingStore = (i18n: i18nType) => {
 	return isLoading;
 };
 
-export const initI18n = (defaultLocale: string | undefined) => {
-	let detectionOrder = defaultLocale
+export const initI18n = (defaultLocale?: string | undefined) => {
+	const detectionOrder = defaultLocale
 		? ['querystring', 'localStorage']
 		: ['querystring', 'localStorage', 'navigator'];
-	let fallbackDefaultLocale = defaultLocale ? [defaultLocale] : ['en-US'];
+	const fallbackDefaultLocale = defaultLocale ? [defaultLocale] : ['en-US'];
 
 	const loadResource = (language: string, namespace: string) =>
 		import(`./locales/${language}/${namespace}.json`);
@@ -66,6 +66,9 @@ export const initI18n = (defaultLocale: string | undefined) => {
 				escapeValue: false // not needed for svelte as it escapes by default
 			}
 		});
+
+	const lang = i18next?.language || defaultLocale || 'en-US';
+	document.documentElement.setAttribute('lang', lang);
 };
 
 const i18n = createI18nStore(i18next);
@@ -75,5 +78,10 @@ export const getLanguages = async () => {
 	const languages = (await import(`./locales/languages.json`)).default;
 	return languages;
 };
+export const changeLanguage = (lang: string) => {
+	document.documentElement.setAttribute('lang', lang);
+	i18next.changeLanguage(lang);
+};
+
 export default i18n;
 export const isLoading = isLoadingStore;

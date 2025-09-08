@@ -1,8 +1,7 @@
 <script>
-	import { getContext, createEventDispatcher, onMount, tick } from 'svelte';
+	import { getContext, onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	const dispatch = createEventDispatcher();
 	const i18n = getContext('i18n');
 
 	import CodeEditor from '$lib/components/common/CodeEditor.svelte';
@@ -14,6 +13,8 @@
 	let formElement = null;
 	let loading = false;
 	let showConfirm = false;
+
+	export let onSave = () => {};
 
 	export let edit = false;
 	export let clone = false;
@@ -256,7 +257,7 @@ class Pipe:
 
 	const saveHandler = async () => {
 		loading = true;
-		dispatch('save', {
+		onSave({
 			id,
 			name,
 			meta,
@@ -276,7 +277,7 @@ class Pipe:
 			await tick();
 
 			if (res) {
-				console.log('Code formatted successfully');
+				console.info('Code formatted successfully');
 
 				saveHandler();
 			}
@@ -371,10 +372,10 @@ class Pipe:
 						value={content}
 						lang="python"
 						{boilerplate}
-						on:change={(e) => {
-							_content = e.detail.value;
+						onChange={(e) => {
+							_content = e;
 						}}
-						on:save={async () => {
+						onSave={async () => {
 							if (formElement) {
 								formElement.requestSubmit();
 							}
@@ -386,7 +387,7 @@ class Pipe:
 					<div class="flex-1 pr-3">
 						<div class="text-xs text-gray-500 line-clamp-2">
 							<span class=" font-semibold dark:text-gray-200">{$i18n.t('Warning:')}</span>
-							{$i18n.t('Functions allow arbitrary code execution')} <br />—
+							{$i18n.t('Functions allow arbitrary code execution.')} <br />—
 							<span class=" font-medium dark:text-gray-400"
 								>{$i18n.t(`don't install random functions from sources you don't trust.`)}</span
 							>

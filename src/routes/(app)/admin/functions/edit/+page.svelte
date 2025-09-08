@@ -51,7 +51,9 @@
 			models.set(
 				await getModels(
 					localStorage.token,
-					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null),
+					false,
+					true
 				)
 			);
 		}
@@ -80,14 +82,14 @@
 		name={func.name}
 		meta={func.meta}
 		content={func.content}
-		on:save={(e) => {
-			saveHandler(e.detail);
+		onSave={(value) => {
+			saveHandler(value);
 		}}
 	/>
 {:else}
 	<div class="flex items-center justify-center h-full">
 		<div class=" pb-16">
-			<Spinner />
+			<Spinner className="size-5" />
 		</div>
 	</div>
 {/if}

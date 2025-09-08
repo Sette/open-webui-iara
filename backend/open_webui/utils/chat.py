@@ -40,7 +40,10 @@ from open_webui.models.functions import Functions
 from open_webui.models.models import Models
 
 
-from open_webui.utils.plugin import load_function_module_by_id
+from open_webui.utils.plugin import (
+    load_function_module_by_id,
+    get_function_module_from_cache,
+)
 from open_webui.utils.models import get_all_models, check_model_access
 from open_webui.utils.payload import convert_payload_openai_to_ollama
 from open_webui.utils.response import (
@@ -66,7 +69,7 @@ async def generate_direct_chat_completion(
     user: Any,
     models: dict,
 ):
-    print("generate_direct_chat_completion")
+    log.info("generate_direct_chat_completion")
 
     metadata = form_data.pop("metadata", {})
 
@@ -103,7 +106,7 @@ async def generate_direct_chat_completion(
             }
         )
 
-        print("res", res)
+        log.info(f"res: {res}")
 
         if res.get("status", False):
             # Define a generator to stream responses
@@ -149,7 +152,7 @@ async def generate_direct_chat_completion(
             }
         )
 
-        if "error" in res:
+        if "error" in res and res["error"]:
             raise Exception(res["error"])
 
         return res
@@ -285,7 +288,7 @@ chat_completion = generate_chat_completion
 
 async def chat_completed(request: Request, form_data: dict, user: Any):
     if not request.app.state.MODELS:
-        await get_all_models(request)
+        await get_all_models(request, user=user)
 
     if getattr(request.state, "direct", False) and hasattr(request.state, "model"):
         models = {
@@ -309,6 +312,7 @@ async def chat_completed(request: Request, form_data: dict, user: Any):
     metadata = {
         "chat_id": data["chat_id"],
         "message_id": data["id"],
+        "filter_ids": data.get("filter_ids", []),
         "session_id": data["session_id"],
         "user_id": user.id,
     }
@@ -316,21 +320,23 @@ async def chat_completed(request: Request, form_data: dict, user: Any):
     extra_params = {
         "__event_emitter__": get_event_emitter(metadata),
         "__event_call__": get_event_call(metadata),
-        "__user__": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "role": user.role,
-        },
+        "__user__": user.model_dump() if isinstance(user, UserModel) else {},
         "__metadata__": metadata,
         "__request__": request,
         "__model__": model,
     }
 
     try:
+        filter_functions = [
+            Functions.get_function_by_id(filter_id)
+            for filter_id in get_sorted_filter_ids(
+                request, model, metadata.get("filter_ids", [])
+            )
+        ]
+
         result, _ = await process_filter_functions(
             request=request,
-            filter_ids=get_sorted_filter_ids(model),
+            filter_functions=filter_functions,
             filter_type="outlet",
             form_data=data,
             extra_params=extra_params,
@@ -351,7 +357,7 @@ async def chat_action(request: Request, action_id: str, form_data: dict, user: A
         raise Exception(f"Action not found: {action_id}")
 
     if not request.app.state.MODELS:
-        await get_all_models(request)
+        await get_all_models(request, user=user)
 
     if getattr(request.state, "direct", False) and hasattr(request.state, "model"):
         models = {
@@ -384,11 +390,7 @@ async def chat_action(request: Request, action_id: str, form_data: dict, user: A
         }
     )
 
-    if action_id in request.app.state.FUNCTIONS:
-        function_module = request.app.state.FUNCTIONS[action_id]
-    else:
-        function_module, _, _ = load_function_module_by_id(action_id)
-        request.app.state.FUNCTIONS[action_id] = function_module
+    function_module, _, _ = get_function_module_from_cache(request, action_id)
 
     if hasattr(function_module, "valves") and hasattr(function_module, "Valves"):
         valves = Functions.get_function_valves_by_id(action_id)
@@ -417,12 +419,7 @@ async def chat_action(request: Request, action_id: str, form_data: dict, user: A
                     params[key] = value
 
             if "__user__" in sig.parameters:
-                __user__ = {
-                    "id": user.id,
-                    "email": user.email,
-                    "name": user.name,
-                    "role": user.role,
-                }
+                __user__ = user.model_dump() if isinstance(user, UserModel) else {}
 
                 try:
                     if hasattr(function_module, "UserValves"):
@@ -432,7 +429,7 @@ async def chat_action(request: Request, action_id: str, form_data: dict, user: A
                             )
                         )
                 except Exception as e:
-                    print(e)
+                    log.exception(f"Failed to get user values: {e}")
 
                 params = {**params, "__user__": __user__}
 

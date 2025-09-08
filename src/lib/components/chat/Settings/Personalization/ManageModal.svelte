@@ -12,6 +12,7 @@
 	import { error } from '@sveltejs/kit';
 	import EditMemoryModal from './EditMemoryModal.svelte';
 	import localizedFormat from 'dayjs/plugin/localizedFormat';
+	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	const i18n = getContext('i18n');
 	dayjs.extend(localizedFormat);
@@ -26,6 +27,21 @@
 
 	let selectedMemory = null;
 
+	let showClearConfirmDialog = false;
+
+	let onClearConfirmed = async () => {
+		const res = await deleteMemoriesByUserId(localStorage.token).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
+
+		if (res && memories.length > 0) {
+			toast.success($i18n.t('Memory cleared successfully'));
+			memories = [];
+		}
+		showClearConfirmDialog = false;
+	};
+
 	$: if (show && memories.length === 0 && loading) {
 		(async () => {
 			memories = await getMemories(localStorage.token);
@@ -34,7 +50,7 @@
 	}
 </script>
 
-<Modal size="xl" bind:show>
+<Modal size="lg" bind:show>
 	<div>
 		<div class=" flex justify-between dark:text-gray-300 px-5 pt-4 pb-1">
 			<div class=" text-lg font-medium self-center">{$i18n.t('Memory')}</div>
@@ -59,14 +75,14 @@
 
 		<div class="flex flex-col w-full px-5 pb-5 dark:text-gray-200">
 			<div
-				class=" flex flex-col w-full sm:flex-row sm:justify-center sm:space-x-6 h-[28rem] max-h-screen outline outline-1 rounded-xl outline-gray-100 dark:outline-gray-800 mb-4 mt-1"
+				class=" flex flex-col w-full sm:flex-row sm:justify-center sm:space-x-6 h-[28rem] max-h-screen rounded-xl mb-4 mt-1"
 			>
 				{#if memories.length > 0}
 					<div class="text-left text-sm w-full mb-4 overflow-y-scroll">
 						<div class="relative overflow-x-auto">
 							<table class="w-full text-sm text-left text-gray-600 dark:text-gray-400 table-auto">
 								<thead
-									class="text-xs text-gray-700 uppercase bg-transparent dark:text-gray-200 border-b-2 dark:border-gray-850"
+									class="text-xs text-gray-700 uppercase bg-transparent dark:text-gray-200 border-b-2 border-gray-50 dark:border-gray-850"
 								>
 									<tr>
 										<th scope="col" class="px-3 py-2"> {$i18n.t('Name')} </th>
@@ -78,7 +94,7 @@
 								</thead>
 								<tbody>
 									{#each memories as memory}
-										<tr class="border-b dark:border-gray-850 items-center">
+										<tr class="border-b border-gray-50 dark:border-gray-850 items-center">
 											<td class="px-3 py-1">
 												<div class="line-clamp-1">
 													{memory.content}
@@ -168,22 +184,18 @@
 			</div>
 			<div class="flex text-sm font-medium gap-1.5">
 				<button
-					class=" px-3.5 py-1.5 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-300 dark:outline-gray-800 rounded-3xl"
+					class=" px-3.5 py-1.5 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-100 dark:outline-gray-800 rounded-3xl"
 					on:click={() => {
 						showAddMemoryModal = true;
 					}}>{$i18n.t('Add Memory')}</button
 				>
 				<button
-					class=" px-3.5 py-1.5 font-medium text-red-500 hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-red-300 dark:outline-red-800 rounded-3xl"
-					on:click={async () => {
-						const res = await deleteMemoriesByUserId(localStorage.token).catch((error) => {
-							toast.error(`${error}`);
-							return null;
-						});
-
-						if (res) {
-							toast.success($i18n.t('Memory cleared successfully'));
-							memories = [];
+					class=" px-3.5 py-1.5 font-medium text-red-500 hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-red-100 dark:outline-red-800 rounded-3xl"
+					on:click={() => {
+						if (memories.length > 0) {
+							showClearConfirmDialog = true;
+						} else {
+							toast.error($i18n.t('No memories to clear'));
 						}
 					}}>{$i18n.t('Clear memory')}</button
 				>
@@ -191,6 +203,16 @@
 		</div>
 	</div>
 </Modal>
+
+<ConfirmDialog
+	title={$i18n.t('Clear Memory')}
+	message={$i18n.t('Are you sure you want to clear all memories? This action cannot be undone.')}
+	show={showClearConfirmDialog}
+	on:confirm={onClearConfirmed}
+	on:cancel={() => {
+		showClearConfirmDialog = false;
+	}}
+/>
 
 <AddMemoryModal
 	bind:show={showAddMemoryModal}
