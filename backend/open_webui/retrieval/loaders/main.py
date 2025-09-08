@@ -410,41 +410,41 @@ class Loader:
                 loader = PyPDFLoader(
                     file_path, extract_images=self.kwargs.get("PDF_EXTRACT_IMAGES")
                 )
-            elif file_ext == "csv":
-                loader = CSVLoader(file_path, autodetect_encoding=True)
-            elif file_ext == "rst":
-                loader = UnstructuredRSTLoader(file_path, mode="elements")
-            elif file_ext == "xml":
-                loader = UnstructuredXMLLoader(file_path)
-            elif file_ext in ["htm", "html"]:
-                loader = BSHTMLLoader(file_path, open_encoding="unicode_escape")
-            elif file_ext == "md":
-                loader = TextLoader(file_path, autodetect_encoding=True)
-            elif file_content_type == "application/epub+zip":
-                loader = UnstructuredEPubLoader(file_path)
-            elif (
-                file_content_type
-                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                or file_ext == "docx"
-            ):
-                loader = Docx2txtLoader(file_path)
-            elif file_content_type in [
-                "application/vnd.ms-excel",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ] or file_ext in ["xls", "xlsx"]:
-                loader = UnstructuredExcelLoader(file_path)
-            elif file_content_type in [
-                "application/vnd.ms-powerpoint",
-                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            ] or file_ext in ["ppt", "pptx"]:
-                loader = UnstructuredPowerPointLoader(file_path)
-            elif file_ext == "msg":
-                loader = OutlookMessageLoader(file_path)
-            elif file_ext == "odt":
-                loader = UnstructuredODTLoader(file_path)
-            elif self._is_text_file(file_ext, file_content_type):
-                loader = TextLoader(file_path, autodetect_encoding=True)
-            else:
-                loader = TextLoader(file_path, autodetect_encoding=True)
+        elif file_ext == "csv":
+            loader = CSVLoader(file_path, autodetect_encoding=True)
+        elif file_ext == "rst":
+            loader = UnstructuredRSTLoader(file_path, mode="elements")
+        elif file_ext == "xml":
+            loader = UnstructuredXMLLoader(file_path)
+        elif file_ext in ["htm", "html"]:
+            loader = BSHTMLLoader(file_path, open_encoding="unicode_escape")
+        elif file_ext == "md":
+            loader = TextLoader(file_path, autodetect_encoding=True)
+        elif file_content_type == "application/epub+zip":
+            loader = UnstructuredEPubLoader(file_path)
+        elif (
+            file_content_type
+            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            or file_ext == "docx"
+        ):
+            loader = Docx2txtLoader(file_path)
+        elif file_content_type in [
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ] or file_ext in ["xls", "xlsx"]:
+            loader = UnstructuredExcelLoader(file_path)
+        elif file_content_type in [
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ] or file_ext in ["ppt", "pptx"]:
+            loader = UnstructuredPowerPointLoader(file_path)
+        elif file_ext == "msg":
+            loader = OutlookMessageLoader(file_path)
+        elif file_ext == "odt":
+            loader = UnstructuredODTLoader(file_path)
+        elif self._is_text_file(file_ext, file_content_type):
+            loader = TextLoader(file_path, autodetect_encoding=True)
+        else:
+            loader = TextLoader(file_path, autodetect_encoding=True)
 
         return loader
