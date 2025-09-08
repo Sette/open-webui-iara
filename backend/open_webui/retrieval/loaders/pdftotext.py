@@ -53,8 +53,11 @@ class PdftotextLoader:
                 "tesseract": USE_TESSERACT}
 
         r = requests.post(
-            url=self.url, headers=headers, files=files, data=data, timeout=(
-                60, 60)
+            url=self.url,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=(60, 60),
         )
         log.info(r)
 

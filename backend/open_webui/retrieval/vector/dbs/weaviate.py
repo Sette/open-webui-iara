@@ -99,22 +99,22 @@ class WeaviateClient:
         return collection_name.capitalize()
 
     def has_collection(self, collection_name: str) -> bool:
-        url = f"{self.base_url}/v1/schema"
-        resp = requests.get(url,
-                            headers=self.headers,
-                            timeout=(60, 60),
-                            )
-        if resp.status_code == 200:
-            classes = [c['class'] for c in resp.json().get("classes", [])]
-            return self.transform_collection_name(collection_name) in classes
-        return False
+        class_name = self.transform_collection_name(collection_name)
+        url = f"{self.base_url}/v1/schema/{class_name}"
+
+        resp = requests.get(url, headers=self.headers, timeout=(60, 60))
+
+        if resp:
+            return True
+        else:
+            return False
 
     def _ensure_collection(self, collection_name: str):
         """
         Ensures that the collection exists; if not, it creates it.
         """
         collection_name = self.transform_collection_name(collection_name)
-        log.info(f"Collection para buscar: {collection_name}")
+        log.info(f"Buscando collection: {collection_name}")
         if not self.has_collection(collection_name):
             log.info("Creating collection %s", collection_name)
             self.create_collection(collection_name)
@@ -210,29 +210,33 @@ class WeaviateClient:
                 log.error(f"Failed to insert: {resp.text}")
 
     def upsert(self, collection_name: str, items: List[VectorItem]):
-        """
-        Removes all collections from Weaviate.
-        WARNING: This operation deletes ALL data.
-        """
-        collection_name = self.transform_collection_name(collection_name)
-        self._ensure_collection(collection_name)
-        coll = self.client.collections.get(collection_name)
+        class_name = self.transform_collection_name(collection_name)
+        self._ensure_collection(class_name)
+        log.info(f"Inserting items into collection: {class_name}")
+        url = f"{self.base_url}/v1/objects"
         for item in items:
+            # Remover a chave hash
+            hash = item["metadata"].get("hash")
+            name = item["metadata"].get("name")
+            item["metadata"].pop("hash", None)
+            item["metadata"].pop("name", None)
             data = {
-                "file_id": item["id"],
-                "documents": item["text"],
-                "metadata": [item["metadata"]],
+                "class": class_name,
+                "properties": {
+                    "file_id": item["id"],
+                    "documents": item["text"],
+                    "hash": hash,
+                    "name": name,
+                    "metadata": item["metadata"],
+                }
             }
-            try:
-                # Tenta buscar o objeto pelo id
-                obj = coll.query.fetch_object_by_id(
-                    item["id"], include_vector=True)
-                if obj:
-                    coll.data.update(data)
-                else:
-                    coll.data.insert(data)
-            except Exception:
-                coll.data.insert(data)
+            resp = requests.post(url,
+                                 headers=self.headers,
+                                 json=data,
+                                 timeout=(60, 60),
+                                 )
+            if resp.status_code not in [200, 201]:
+                log.error(f"Failed to insert: {resp.text}")
 
     def query(
         self, collection_name: str, filter: dict, limit: Optional[int] = 1
