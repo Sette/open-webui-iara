@@ -1,6 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 import logging
 
 from open_webui.models.knowledge import (
@@ -24,7 +24,7 @@ from open_webui.utils.auth import get_verified_user
 from open_webui.utils.access_control import has_access, has_permission
 
 
-from open_webui.env import SRC_LOG_LEVELS
+from open_webui.env import SRC_LOG_LEVELS, BACKEND_MODE
 from open_webui.models.models import Models, ModelForm
 
 
@@ -596,6 +596,27 @@ def add_files_to_knowledge_batch(
     """
     Add multiple files to a knowledge base
     """
+    return_knowledge = not BACKEND_MODE
+
+    fake_response = {
+        "id": "string",
+        "user_id": "string",
+        "name": "string",
+        "description": "string",
+        "data": {
+            "additionalProp1": {}
+        },
+        "meta": {
+            "additionalProp1": {}
+        },
+        "access_control": {
+            "additionalProp1": {}
+        },
+        "created_at": 0,
+        "updated_at": 0,
+        "files": [],
+    }
+
     knowledge = Knowledges.get_knowledge_by_id(id=id)
     if not knowledge:
         raise HTTPException(
@@ -654,15 +675,27 @@ def add_files_to_knowledge_batch(
     # If there were any errors, include them in the response
     if result.errors:
         error_details = [f"{err.file_id}: {err.error}" for err in result.errors]
+        if return_knowledge:
+            return KnowledgeFilesResponse(
+                **knowledge.model_dump(),
+                files=Files.get_files_by_ids(existing_file_ids),
+                warnings={
+                    "message": "Some files failed to process",
+                    "errors": error_details,
+                },
+            )
+        else:
+            return KnowledgeFilesResponse(
+                warnings={
+                    "message": "Some files failed to process",
+                    "errors": error_details,
+                },
+            )
+    if return_knowledge:
         return KnowledgeFilesResponse(
-            **knowledge.model_dump(),
-            files=Files.get_files_by_ids(existing_file_ids),
-            warnings={
-                "message": "Some files failed to process",
-                "errors": error_details,
-            },
+            **knowledge.model_dump(), files=Files.get_files_by_ids(existing_file_ids)
         )
-
-    return KnowledgeFilesResponse(
-        **knowledge.model_dump(), files=Files.get_files_by_ids(existing_file_ids)
-    )
+    else:
+        return KnowledgeFilesResponse(
+            **fake_response,
+        )
