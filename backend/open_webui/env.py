@@ -135,6 +135,14 @@ else:
 VERSION = PACKAGE_DATA["version"]
 
 
+####################################
+# BACKEND MODE (true,false)
+# This function ignores some returns in many routes, for backend only propose
+####################################
+
+BACKEND_MODE = os.environ.get("BACKEND_MODE", "True").lower() == "true"
+
+
 # Function to parse each section
 def parse_section(section):
     items = []
