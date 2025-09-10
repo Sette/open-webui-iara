@@ -222,6 +222,8 @@ async def get_task_status(task_id: str):
         status = state.get("status", "not_found")
         if status == "Process completed":
             status = "Processing Completed"
+        if status == "Process failed":
+            status = "Processing Failed"
         return {
             "task_id": task_id,
             "status": status,
