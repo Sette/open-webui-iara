@@ -95,7 +95,7 @@ class WeaviateClient:
         """
         collection_name = collection_name.replace("-", "").lower()
         if not (collection_name.startswith("file") or collection_name.startswith("knowledge")):
-            collection_name = f"knowledge-{collection_name}"
+            collection_name = f"knowledge{collection_name}"
         return collection_name.capitalize()
 
     def has_collection(self, collection_name: str) -> bool:
