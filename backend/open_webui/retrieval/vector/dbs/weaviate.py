@@ -119,7 +119,14 @@ class WeaviateClient:
             log.info("Creating collection %s", collection_name)
             self.create_collection(collection_name)
 
-    def create_collection(self, collection_name: str):
+    def create_collection(
+        self, collection_name: str,
+        ef: int = 96,
+        ef_construction: int = 256,
+        max_conn: int = 16,
+        cache_max: int = 1000,
+        distance: str = "cosine",
+        ):
         class_name = self.transform_collection_name(collection_name)
         schema = {
             "class": class_name,
@@ -131,7 +138,14 @@ class WeaviateClient:
                     "model": "amazon.titan-embed-text-v2:0",
                     "vectorIndexType": "hnsw",
                     "sourceProperties": ["text"]
-                }
+                },
+                "vectorIndexConfig": {
+                    "distance": distance,
+                    "ef": ef,                          # efSearch default
+                    "efConstruction": ef_construction, # construção do grafo
+                    "maxConnections": max_conn,
+                    "vectorCacheMaxObjects": cache_max
+                },    
             },
             "properties": [
                 {"name": "file_id", "dataType": ["text"]},
