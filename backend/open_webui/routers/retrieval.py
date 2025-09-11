@@ -1184,30 +1184,30 @@ def process_file_async(
         hash = calculate_sha256_string(text_content)
         Files.update_file_hash_by_id(file.id, hash)
 
-        try:
-            result = save_docs_to_vector_db(
-                request,
-                docs=docs,
-                collection_name=collection_name,
-                metadata={
-                    "file_id": file.id,
-                    "name": file.filename,
-                    "hash": hash,
-                },
-                add=(True if form_data.collection_name else False),
-                user=user,
-            )
-
-            if result:
-                Files.update_file_metadata_by_id(
-                    file.id,
-                    {
-                        "collection_name": collection_name,
-                    },
-                )
-
-        except Exception as e:
-            raise e
+        # try:
+        #     result = save_docs_to_vector_db(
+        #         request,
+        #         docs=docs,
+        #         collection_name=collection_name,
+        #         metadata={
+        #             "file_id": file.id,
+        #             "name": file.filename,
+        #             "hash": hash,
+        #         },
+        #         add=(True if form_data.collection_name else False),
+        #         user=user,
+        #     )
+        #
+        #     if result:
+        #         Files.update_file_metadata_by_id(
+        #             file.id,
+        #             {
+        #                 "collection_name": collection_name,
+        #             },
+        #         )
+        #
+        # except Exception as e:
+        #     raise e
 
     except Exception as e:
         log.exception(e)
