@@ -317,3 +317,6 @@ backend/data
 
 # Continue dev
 .continue/
+
+# UV
+uv.lock
