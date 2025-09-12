@@ -499,12 +499,16 @@ class WeaviateClient:
         for cl in schema.get("classes", []):
             cname = cl["class"]
             del_url = f"{self.base_url}/v1/schema/{cname}"
-            resp = requests.delete(
-                del_url,
-                headers=self.headers,
-                timeout=(60, 60),
-            )
-            if resp.ok:
-                log.info(f"Deleted {cname}")
-            else:
-                log.error(f"Could not delete {cname}: {resp.text}")
+            try:
+                resp = requests.delete(
+                    del_url,
+                    headers=self.headers,
+                    timeout=(60, 60),
+                )
+                if resp.ok:
+                    log.info(f'Deleted {cname}')
+                else:
+                    log.error(f'Could not delete {cname}: {resp.text}')
+            except:
+                log.error(f'Could not delete {cname}')
+                pass
